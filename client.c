@@ -30,8 +30,17 @@ int main(int argc, char **argv) {
 	server_name.sin_addr.s_addr = inet_addr(SERVER_ADDR);
 
 	connect(server_d, (struct sockaddr *)&server_name, sizeof(server_name));
+	
+	char *send_message;
+	if (argc == 1) {
+		send_message = "exit";
+	} else if (argc == 2) {
+		send_message = argv[1];
+	} else {
+		error("Please input ./client [message]");
+	}
 
-	send(server_d, argv[1], strlen(argv[1]), 0);
+	send(server_d, send_message, strlen(send_message), 0);
 	
 	char buff[1024];
 	recv(server_d, buff, 1024, 0);
@@ -39,5 +48,4 @@ int main(int argc, char **argv) {
 
 	close(server_d);
 }
-
 
