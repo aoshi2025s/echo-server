@@ -4,11 +4,10 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <netdb.h>
 
 #define SERVER_ADDR "127.0.0.1"
-#define SERVER_PORT 8080
-
-// bind(int socket, const struct sockaddr *address, socklen_t address_len);
+#define SERVER_PORT "8080"
 
 void error(char * message) {
 	printf("\x1b[31m%s\n", message);
@@ -17,66 +16,56 @@ void error(char * message) {
 
 int main(int argc, char **argv) {
 
-	// PF_INET -> ipv4
-	// PF_INET6 -> ipv6
-	// SOCK_STREAM -> tcp
-	// SOCK_DGRAM -> udp
-	int socket_num = socket(PF_INET, SOCK_STREAM, 0);
+	struct addrinfo info;
+	struct addrinfo *addr;
+	struct sockaddr_storage from;
+	char host[NI_MAXHOST];
+
+	memset(&info, 0, sizeof(info));
+	info.ai_family = PF_INET;
+	info.ai_socktype = SOCK_STREAM;
+	info.ai_flags = AI_PASSIVE;
+
+	if (getaddrinfo(NULL, SERVER_PORT, &info, &addr) != 0) {
+		error("getaddrinfo failed");
+	}
+	
+	int socket_num = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 	if (socket_num == -1) {
 		error("create socket failed");
 	}
-
-	// socket name
-	struct sockaddr_in socket_name;
-	socket_name.sin_family = PF_INET;
-	// socket_name.sin_port = (in_port_t)htons(5000);
-	socket_name.sin_port = htons(SERVER_PORT);
-	socket_name.sin_addr.s_addr = inet_addr(SERVER_ADDR);
-
-	int bind_num = bind(socket_num, (struct sockaddr *)&socket_name, sizeof(socket_name));
+	int bind_num = bind(socket_num, addr->ai_addr, addr->ai_addrlen);
 	if (bind_num == -1) {
-		error("bind failed");
+		error("bind fialed");
 	}
 
-	// listen(socket_discriptor, max_len_of_pending_queue);
-	listen(socket_num, 1);
-	printf("接続待機中\n");
+	listen(socket_num, 5);
+	printf("接続待機中・・・\n");
+	socklen_t fromlen = sizeof(from);
 
 	while (1) {
-		struct sockaddr_storage client_addr;
-		unsigned int address_size = sizeof(client_addr);
 
-		int client_socket = accept(socket_num, (struct sockaddr *)&client_addr, (socklen_t *)&address_size);
+		int client_socket = accept(socket_num, (struct sockaddr *)&from, &fromlen);
 		if (client_socket == -1) {
 			error("accept failed");
 		}
-		printf("connect success\n");
 
-
-		// クライアントからの受信
-		// recv(int socket, void *buffer, size_t length, int flags);
+		getnameinfo((struct sockaddr *)&from, fromlen, host, sizeof(host), NULL, 0, NI_NUMERICHOST);
+		printf("accept from: %s\n", host);
+		close(socket_num);
 		char buff[1024];
 		memset(buff, 0, sizeof(buff));
-		int recv_byte = recv(client_socket, buff, sizeof(buff), 0);
-		// TODO: recv_byte == 0だったらどうする？
-		if (recv_byte == -1) {
-			error("recieve failed");
-		}
-		// "quit"または"exit"が送られてきたら接続終了する
-		if (strncmp(buff, "quit\n", recv_byte) == 0 || strncmp(buff, "exit\n", recv_byte) == 0) {
-			// TODO
-			// 接続終了処理を書く
-			printf("TODO: 接続終了処理をかく\n");
+		int recv_num = recv(client_socket, buff, sizeof(buff), 0);
+		if (recv_num  == -1) {
+			error("recv failed");
 		}
 		printf("received from client: %s\n", buff);
-
-		int send_byte = send(client_socket, buff, sizeof(buff), 0);
-		if (send_byte == -1) {
+		int send_num = send(client_socket, buff, sizeof(buff), 0);
+		if (send_num == -1) {
 			error("send failed");
 		}
-		close(client_socket);
+		// close(client_socket);
 	}
-
-	printf("socket_num: %d\n", socket_num);
+	freeaddrinfo(addr);
 }
 

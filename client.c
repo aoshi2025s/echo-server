@@ -5,9 +5,12 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
+#include <netdb.h>
 
-#define SERVER_ADDR "127.0.0.1"
-#define SERVER_PORT 8080
+#define SERVER_ADDR_IPV4 "127.0.0.1"
+#define SERVER_ADDR_IPV6 "::1"
+#define SERVER_PORT "8080"
 
 void error(char *message) {
 	printf("%s\n", message);
@@ -15,37 +18,45 @@ void error(char *message) {
 }
 
 int main(int argc, char **argv) {
-	// socket作成
-	int server_d = socket(PF_INET, SOCK_STREAM, 0);
+
+	char * send_message;
+	if (argc == 3) {
+		send_message = argv[2];
+	} else {
+		error("Please input ./client [server_ip_address] [message]");
+	}
+
+	struct addrinfo info;
+	struct addrinfo *addr = NULL;
+	memset(&info, 0, sizeof(info));
+	// PF_INET -> ipv4, PF_INET6 -> ipv6, PF_UNSPECでどちらもいける？
+	// info.ai_family = PF_INET6;
+	info.ai_family = PF_UNSPEC;
+	info.ai_socktype = SOCK_STREAM;
+
+	if (getaddrinfo(argv[1], SERVER_PORT, &info, &addr) != 0) {
+	   error("getaddrinfo failed");
+	}	   
+
+
+	int server_d = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 	if (server_d == -1) {
 		error("create socket failed");
 	}
 
-	struct sockaddr_in server_name;
-	// 初期化
-	memset(&server_name, 0, sizeof(server_name));
-
-	server_name.sin_family = PF_INET,
-	server_name.sin_port = htons(SERVER_PORT);
-	server_name.sin_addr.s_addr = inet_addr(SERVER_ADDR);
-
-	connect(server_d, (struct sockaddr *)&server_name, sizeof(server_name));
-	
-	char *send_message;
-	if (argc == 1) {
-		send_message = "exit";
-	} else if (argc == 2) {
-		send_message = argv[1];
-	} else {
-		error("Please input ./client [message]");
+	int connect_num = connect(server_d, addr->ai_addr, addr->ai_addrlen);
+	if (connect_num == -1) {
+		error("connect failed");
 	}
 
+
 	send(server_d, send_message, strlen(send_message), 0);
-	
 	char buff[1024];
 	recv(server_d, buff, 1024, 0);
 	printf("received from server: %s\n", buff);
-
 	close(server_d);
+
+	freeaddrinfo(addr);
+	return 0;
 }
 
