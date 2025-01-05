@@ -1,62 +1,55 @@
-#include <sys/socket.h>
-#include <string.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
+#include <string.h>
+#include <unistd.h>
 #include <arpa/inet.h>
-#include <sys/types.h>
-#include <netdb.h>
+#include <sys/socket.h>
 
-#define SERVER_ADDR_IPV4 "127.0.0.1"
-#define SERVER_ADDR_IPV6 "::1"
-#define SERVER_PORT "8080"
+#define SERVER_ADDRESS "::1"
+#define PORT 9000
+#define BUFFER_SIZE 1024
 
-void error(char *message) {
-	printf("%s\n", message);
-	exit(1);
+int main() {
+    int client_sd = socket(PF_INET6, SOCK_STREAM, 0);
+    if (client_sd == -1) {
+        perror("failure: socket()");
+        exit(EXIT_FAILURE);
+    }
+
+    struct sockaddr_in6 server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin6_family = PF_INET6;
+    inet_pton(PF_INET6, SERVER_ADDRESS, &server_addr.sin6_addr);
+    server_addr.sin6_port = htons(PORT);
+
+    if (connect(client_sd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+        perror("failure: connect()");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Connected to the server.\n");
+
+    while (1) {
+        printf("Enter message: ");
+    	char buffer[BUFFER_SIZE];
+		memset(buffer, 0, BUFFER_SIZE);
+        fgets(buffer, BUFFER_SIZE, stdin);
+
+		// TODO: sendでエラー起きたらどうするべき？
+        send(client_sd, buffer, strlen(buffer), 0);
+
+        memset(buffer, 0, BUFFER_SIZE);
+        int bytes_received = recv(client_sd, buffer, BUFFER_SIZE - 1, 0);
+		// TODO: recvの返り値0と1で処理変える？エラーの時は-1で、0の時は↓
+		// For TCP sockets, the return value 0 means the peer has closed its half side of the connection.
+        if (bytes_received <= 0) {
+            perror("failure: recv()");
+            break;
+        }
+
+        printf("From Server: %s", buffer);
+    }
+
+    close(client_sd);
+	return EXIT_SUCCESS;
 }
-
-int main(int argc, char **argv) {
-
-	char * send_message;
-	if (argc == 3) {
-		send_message = argv[2];
-	} else {
-		error("Please input ./client [server_ip_address] [message]");
-	}
-
-	struct addrinfo info;
-	struct addrinfo *addr = NULL;
-	memset(&info, 0, sizeof(info));
-	// PF_INET -> ipv4, PF_INET6 -> ipv6, PF_UNSPECでどちらもいける？
-	// info.ai_family = PF_INET6;
-	info.ai_family = PF_UNSPEC;
-	info.ai_socktype = SOCK_STREAM;
-
-	if (getaddrinfo(argv[1], SERVER_PORT, &info, &addr) != 0) {
-	   error("getaddrinfo failed");
-	}	   
-
-
-	int server_d = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
-	if (server_d == -1) {
-		error("create socket failed");
-	}
-
-	int connect_num = connect(server_d, addr->ai_addr, addr->ai_addrlen);
-	if (connect_num == -1) {
-		error("connect failed");
-	}
-
-
-	send(server_d, send_message, strlen(send_message), 0);
-	char buff[1024];
-	recv(server_d, buff, 1024, 0);
-	printf("received from server: %s\n", buff);
-	close(server_d);
-
-	freeaddrinfo(addr);
-	return 0;
-}
-
