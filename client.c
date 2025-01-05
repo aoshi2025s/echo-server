@@ -32,16 +32,16 @@ int main() {
     while (1) {
         printf("Enter message: ");
     	char buffer[BUFFER_SIZE];
-		memset(buffer, 0, BUFFER_SIZE);
+	memset(buffer, 0, BUFFER_SIZE);
         fgets(buffer, BUFFER_SIZE, stdin);
 
-		// TODO: sendでエラー起きたらどうするべき？
+	// TODO: sendでエラー起きたらどうするべき？
         send(client_sd, buffer, strlen(buffer), 0);
 
         memset(buffer, 0, BUFFER_SIZE);
         int bytes_received = recv(client_sd, buffer, BUFFER_SIZE - 1, 0);
-		// TODO: recvの返り値0と1で処理変える？エラーの時は-1で、0の時は↓
-		// For TCP sockets, the return value 0 means the peer has closed its half side of the connection.
+	// TODO: recvの返り値0と1で処理変える？エラーの時は-1で、0の時は↓
+	// For TCP sockets, the return value 0 means the peer has closed its half side of the connection.
         if (bytes_received <= 0) {
             perror("failure: recv()");
             break;
