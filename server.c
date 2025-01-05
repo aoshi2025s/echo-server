@@ -47,7 +47,8 @@ int main(int argc, char **argv) {
 
 		int client_socket = accept(socket_num, (struct sockaddr *)&from, &fromlen);
 		if (client_socket == -1) {
-			error("accept failed");
+			// error("accept failed");
+			perror("Accept Error");
 		}
 
 		getnameinfo((struct sockaddr *)&from, fromlen, host, sizeof(host), NULL, 0, NI_NUMERICHOST);
@@ -64,7 +65,7 @@ int main(int argc, char **argv) {
 		if (send_num == -1) {
 			error("send failed");
 		}
-		// close(client_socket);
+		close(client_socket);
 	}
 	freeaddrinfo(addr);
 }
