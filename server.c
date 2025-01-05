@@ -36,8 +36,8 @@ int main() {
     while (1) {
 	struct sockaddr_in6 client_addr;
 	socklen_t client_len = sizeof(client_addr);
-        int client_fd = accept(server_sd, (struct sockaddr *)&client_addr, &client_len);
-        if (client_fd == -1) {
+        int client_sd = accept(server_sd, (struct sockaddr *)&client_addr, &client_len);
+        if (client_sd == -1) {
             perror("failure: accept()");
             continue;
         }
@@ -47,7 +47,7 @@ int main() {
         while (1) {
     	    char buffer[BUFFER_SIZE];
             memset(buffer, 0, BUFFER_SIZE);
-            int bytes_received = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+            int bytes_received = recv(client_sd, buffer, BUFFER_SIZE - 1, 0);
 	    // TODO: -1の時と0の時でどうするか考える
             if (bytes_received <= 0) {
                 perror("failure: recv()");
@@ -57,7 +57,7 @@ int main() {
             printf("From Client: %s", buffer);
 
 	    // TODO: sendのエラーハンドリングどうするか
-            send(client_fd, buffer, bytes_received, 0);
+            send(client_sd, buffer, bytes_received, 0);
         }
     }
 
